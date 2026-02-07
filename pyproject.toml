@@ -1,0 +1,9 @@
+[project]
+name = "rt-aaidc-project1-template"
+version = "0.1.0"
+description = "A RAG-based AI assistant using LangChain, ChromaDB, and Sentence Transformers"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "langchain-community>=0.4.1",
+]

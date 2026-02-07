@@ -7,6 +7,7 @@ from vectordb import VectorDB
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.document_loaders import TextLoader
 
 # Load environment variables
 load_dotenv()
@@ -20,12 +21,17 @@ def load_documents() -> List[str]:
         List of sample documents
     """
     results = []
-    # TODO: Implement document loading
-    # HINT: Read the documents from the data directory
-    # HINT: Return a list of documents
-    # HINT: Your implementation depends on the type of documents you are using (.txt, .pdf, etc.)
+    documents_path = "./data"
+    for file in os.listdir(documents_path):
+        file_path = os.path.join(documents_path, file)
+        try:
+            loader = TextLoader(file_path)
+            loaded_docs = loader.load()
+            results.extend(loaded_docs)
+            print(f"Successfully loaded: {file}")
+        except Exception as e:
+            print(f"Error loading {file}: {str(e)}")
 
-    # Your implementation here
     return results
 
 
@@ -45,15 +51,40 @@ class RAGAssistant:
                 "OPENAI_API_KEY, GROQ_API_KEY, or GOOGLE_API_KEY in your .env file"
             )
 
+        self.chat_history = []
+
         # Initialize vector database
         self.vector_db = VectorDB()
 
         # Create RAG prompt template
-        # TODO: Implement your RAG prompt template
-        # HINT: Use ChatPromptTemplate.from_template() with a template string
-        # HINT: Your template should include placeholders for {context} and {question}
-        # HINT: Design your prompt to effectively use retrieved context to answer questions
-        self.prompt_template = None  # Your implementation here
+        self.prompt_template = ChatPromptTemplate.from_template(
+            template="""
+            
+            You are a helpful {role}. 
+            
+            Context:
+            {context}
+            
+            Instructions:
+            {instructions}
+
+
+            Reasoning Process:
+            {reasoning_process}
+
+            Output Constraints:
+            {output_constraints}
+
+            Style or Tone:
+            {style_or_tone}
+
+            Goal:
+            {goal}
+
+            Researcher's Question:
+            {question}
+            """
+            )
 
         # Create the chain
         self.chain = self.prompt_template | self.llm | StrOutputParser()
@@ -115,13 +146,50 @@ class RAGAssistant:
             Dictionary containing the answer and retrieved context
         """
         llm_answer = ""
-        # TODO: Implement the RAG query pipeline
-        # HINT: Use self.vector_db.search() to retrieve relevant context chunks
-        # HINT: Combine the retrieved document chunks into a single context string
-        # HINT: Use self.chain.invoke() with context and question to generate the response
-        # HINT: Return a string answer from the LLM
+        results = self.vector_db.search(input)
 
-        # Your implementation here
+        # Format results
+        relevant_chunks = []
+        for i, doc in enumerate(results["documents"][0]):
+            relevant_chunks.append({
+                "content": doc,
+                "title": results["metadatas"][0][i]["source"],
+                "similarity": 1 - results["distances"][0][i]  # Convert distance to similarity
+            })
+
+        # Add chat history to the prompt
+        chat_history = "\n\n".join([
+            f"{chat['role']}: {chat['content']}"
+            for chat in self.chat_history[-10:]
+        ])
+
+        # Build context from research
+        relevant_context = "\n\n".join([
+            f"From {chunk['title']}:\n{chunk['content']}" 
+            for chunk in relevant_chunks
+        ])
+
+        # Prompt Builder Config
+        role = "Research Assistant"
+        context = f"""
+            Relevant Context:
+            {relevant_context}
+
+            Chat History:
+            {chat_history}
+        """
+        instructions = "You are tasked with answering questions based on the research findings."
+        reasoning_process = "Chain of Thought"
+        output_constraints = "The output should have 2 clear sections: namely reasoning and answer."
+        style_or_tone = "Plain and concise."
+        goal = "Provide a comprehensive answer based on the research findings below."
+
+
+        print(f"{len(results)} relevant chunks found.")
+
+        # Generate answer
+        llm_answer = self.chain.invoke({"context":context, "question":input, "reasoning_process":reasoning_process, "instructions":instructions, "role":role, "output_constraints":output_constraints, "style_or_tone":style_or_tone, "goal":goal})
+
         return llm_answer
 
 
@@ -146,8 +214,10 @@ def main():
             if question.lower() == "quit":
                 done = True
             else:
-                result = assistant.query(question)
-                print(result)
+                result = assistant.invoke(question)
+                assistant.chat_history.append({"role": "user", "content": question})
+                assistant.chat_history.append({"role": "assistant", "content": result})
+                print("Answer:\n", result)
 
     except Exception as e:
         print(f"Error running RAG assistant: {e}")

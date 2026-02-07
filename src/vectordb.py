@@ -1,6 +1,7 @@
 import os
 import chromadb
 from typing import List, Dict, Any
+from langchain_text_splitters.character import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 
 
@@ -50,27 +51,14 @@ class VectorDB:
         Returns:
             List of text chunks
         """
-        # TODO: Implement text chunking logic
-        # You have several options for chunking text - choose one or experiment with multiple:
-        #
-        # OPTION 1: Simple word-based splitting
-        #   - Split text by spaces and group words into chunks of ~chunk_size characters
-        #   - Keep track of current chunk length and start new chunks when needed
-        #
-        # OPTION 2: Use LangChain's RecursiveCharacterTextSplitter
-        #   - from langchain_text_splitters import RecursiveCharacterTextSplitter
-        #   - Automatically handles sentence boundaries and preserves context better
-        #
-        # OPTION 3: Semantic splitting (advanced)
-        #   - Split by sentences using nltk or spacy
-        #   - Group semantically related sentences together
-        #   - Consider paragraph boundaries and document structure
-        #
-        # Feel free to try different approaches and see what works best!
-
-        chunks = []
-        # Your implementation here
-
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,          # ~200 words per chunk
+            chunk_overlap=200,        # Overlap to preserve context
+            separators=["\n\n", "\n", ". ", " ", ""]
+        )
+        
+        chunks = text_splitter.split_text(text)
+    
         return chunks
 
     def add_documents(self, documents: List) -> None:
@@ -80,18 +68,39 @@ class VectorDB:
         Args:
             documents: List of documents
         """
-        # TODO: Implement document ingestion logic
-        # HINT: Loop through each document in the documents list
-        # HINT: Extract 'content' and 'metadata' from each document dict
-        # HINT: Use self.chunk_text() to split each document into chunks
-        # HINT: Create unique IDs for each chunk (e.g., "doc_0_chunk_0")
-        # HINT: Use self.embedding_model.encode() to create embeddings for all chunks
-        # HINT: Store the embeddings, documents, metadata, and IDs in your vector database
-        # HINT: Print progress messages to inform the user
-
         print(f"Processing {len(documents)} documents...")
-        # Your implementation here
-        print("Documents added to vector database")
+        
+        for idx, doc in enumerate(documents):
+            # Compatibility check: standard LangChain docs use .page_content
+            content = doc.page_content if hasattr(doc, 'page_content') else doc['content']
+            metadata = doc.metadata if hasattr(doc, 'metadata') else doc.get('metadata', {})
+            chunks = self.chunk_text(content)
+           # 1. Create unique IDs for every chunk in this document
+            ids = [f"doc_{idx}_chunk_{i}" for i in range(len(chunks))]
+
+            # 2. Create a metadata list (Chroma needs one dict per chunk)
+            # We copy the original metadata and add the chunk index to it
+            metadatas = []
+            for i in range(len(chunks)):
+                chunk_meta = metadata.copy()
+                chunk_meta["chunk_index"] = i
+                metadatas.append(chunk_meta)
+
+            # 3. Generate embeddings (PASS THE CHUNKS LIST, NOT DICTS)
+            # Convert to list because Chroma prefers it over numpy arrays
+            embeddings = self.embedding_model.encode(chunks).tolist()
+            
+
+            # 4. Add to the collection
+            self.collection.add(
+                embeddings=embeddings,
+                ids=ids,
+                documents=chunks, # List of strings
+                metadatas=metadatas # List of dictionaries
+            )
+
+            print(f"Processed Document {idx+1}. Total chunks: {len(chunks)}")
+
 
     def search(self, query: str, n_results: int = 5) -> Dict[str, Any]:
         """
@@ -104,17 +113,13 @@ class VectorDB:
         Returns:
             Dictionary containing search results with keys: 'documents', 'metadatas', 'distances', 'ids'
         """
-        # TODO: Implement similarity search logic
-        # HINT: Use self.embedding_model.encode([query]) to create query embedding
-        # HINT: Convert the embedding to appropriate format for your vector database
-        # HINT: Use your vector database's search/query method with the query embedding and n_results
-        # HINT: Return a dictionary with keys: 'documents', 'metadatas', 'distances', 'ids'
-        # HINT: Handle the case where results might be empty
-
-        # Your implementation here
-        return {
-            "documents": [],
-            "metadatas": [],
-            "distances": [],
-            "ids": [],
-        }
+        # Convert question to vector
+        query_vector = self.embedding_model.encode([query]).tolist()
+    
+        # Search for similar content
+        results = self.collection.query(
+            query_embeddings=query_vector,
+            n_results=n_results,
+            include=["documents", "metadatas", "distances"]
+        )
+        return results
