@@ -81,7 +81,6 @@ rt-aaidc-project1-template/
 
    ```bash
    git clone https://github.com/Naolt/rag-ai-assistant
-   cd rt-aaidc-project1-template
    ```
 
 2. **Install dependencies:**
