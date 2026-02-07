@@ -1,6 +1,6 @@
-# RAG-Based AI Assistant
+# LangChain Docs AI Assistant
 
-A Retrieval-Augmented Generation (RAG) AI assistant that answers questions by searching through a document corpus and generating contextual responses using LLMs. Built with LangChain, ChromaDB, and Sentence Transformers.
+A Retrieval-Augmented Generation (RAG) AI assistant that answers developer questions about LangChain by searching through its official documentation and generating contextual responses using LLMs. Built with LangChain, ChromaDB, and Sentence Transformers.
 
 ## Features
 
@@ -35,18 +35,22 @@ rt-aaidc-project1-template/
 ├── src/
 │   ├── app.py             # Main RAG application and CLI
 │   └── vectordb.py        # ChromaDB vector database wrapper
-├── data/                  # Document corpus (.txt files)
-│   ├── artificial_intelligence.txt
-│   ├── biotechnology.txt
-│   ├── climate_science.txt
-│   ├── quantum_computing.txt
-│   ├── space_exploration.txt
-│   ├── sustainable_energy.txt
-│   └── sample_documents.txt
+├── data/                  # LangChain documentation corpus (.txt files)
+│   ├── overview.txt
+│   ├── models.txt
+│   ├── agents.txt
+│   ├── tools.txt
+│   ├── messages.txt
+│   ├── short-term-memory.txt
+│   ├── streaming-overview.txt
+│   └── streaming-frontend.txt
+├── tests/                 # Test suite
+│   └── test_vectordb.py   # Vector database unit tests
 ├── chroma_db/             # Persistent vector database storage
 ├── requirements.txt       # Python dependencies
 ├── pyproject.toml         # Project metadata
 ├── .env.example           # Environment variable template
+├── LICENSE                # CC BY-NC-SA 4.0
 └── .gitignore
 ```
 
@@ -147,21 +151,27 @@ Successfully loaded: climate_science.txt
 ...
 Loaded 7 sample documents
 
-Enter a question or 'quit' to exit: What is quantum computing?
+Enter a question or 'quit' to exit: How do I create a tool in LangChain?
 
 Answer:
  **Reasoning:**
- Based on the retrieved context from quantum_computing.txt, quantum computing
- is described as a field that leverages quantum mechanical phenomena to process
- information in fundamentally different ways than classical computers.
+ Based on the retrieved context from tools.txt, LangChain provides a @tool
+ decorator for creating tools that agents can use.
 
  **Answer:**
- Quantum computing is a type of computation that uses quantum bits (qubits)
- instead of classical bits. Unlike classical bits which can only be 0 or 1,
- qubits can exist in superposition — representing both states simultaneously.
- This allows quantum computers to solve certain problems exponentially faster
- than classical computers, particularly in areas like cryptography,
- optimization, and molecular simulation.
+ The simplest way to create a tool in LangChain is with the @tool decorator.
+ The function's docstring becomes the tool description that helps the model
+ understand when to use it. Type hints are required as they define the tool's
+ input schema. For example:
+
+ ```python
+ from langchain.tools import tool
+
+ @tool
+ def search_database(query: str, limit: int = 10) -> str:
+     """Search the customer database for records matching the query."""
+     return f"Found {limit} results for '{query}'"
+ ```
 ```
 
 ## Configuration
@@ -184,3 +194,15 @@ The assistant auto-detects which provider to use based on which API key is set (
 ## Adding Your Own Documents
 
 Place `.txt` files in the `data/` directory. The assistant loads all files from this directory on startup. Each file is automatically chunked and embedded into the vector database.
+
+## Testing
+
+Run the test suite:
+
+```bash
+uv run python -m pytest tests/ -v
+```
+
+## License
+
+This project is licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International](LICENSE) license.

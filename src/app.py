@@ -23,6 +23,8 @@ def load_documents() -> List[str]:
     results = []
     documents_path = "./data"
     for file in os.listdir(documents_path):
+        if not file.endswith(".txt"):
+            continue
         file_path = os.path.join(documents_path, file)
         try:
             loader = TextLoader(file_path)
@@ -81,7 +83,7 @@ class RAGAssistant:
             Goal:
             {goal}
 
-            Researcher's Question:
+            Developer's Question:
             {question}
             """
             )
@@ -170,7 +172,7 @@ class RAGAssistant:
         ])
 
         # Prompt Builder Config
-        role = "Research Assistant"
+        role = "LangChain Documentation Assistant"
         context = f"""
             Relevant Context:
             {relevant_context}
@@ -178,11 +180,11 @@ class RAGAssistant:
             Chat History:
             {chat_history}
         """
-        instructions = "You are tasked with answering questions based on the research findings."
+        instructions = "You are tasked with answering developer questions about LangChain based on the official documentation provided."
         reasoning_process = "Chain of Thought"
         output_constraints = "The output should have 2 clear sections: namely reasoning and answer."
         style_or_tone = "Plain and concise."
-        goal = "Provide a comprehensive answer based on the research findings below."
+        goal = "Provide a comprehensive answer based on the LangChain documentation provided below."
 
 
         print(f"{len(results)} relevant chunks found.")
